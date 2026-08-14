@@ -1,0 +1,226 @@
+	<?xml version="1.0" encoding="UTF-8"?>
+	<project xmlns="http://maven.apache.org/POM/4.0.0"
+			 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+			 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+			 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+		<modelVersion>4.0.0</modelVersion>
+
+		<!-- Родительский POM Spring Boot -->
+		<parent>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-parent</artifactId>
+			<version>3.2.0</version>
+			<relativePath/>
+		</parent>
+
+		<!-- Координаты проекта -->
+		<groupId>com.skypro</groupId>
+		<artifactId>diploma</artifactId>
+		<version>1.0.0</version>
+		<name>diploma</name>
+		<description>Diploma project for Skypro Java-developer course</description>
+		<packaging>jar</packaging>
+
+		<!-- Свойства проекта -->
+		<properties>
+			<java.version>17</java.version>
+			<maven.compiler.source>17</maven.compiler.source>
+			<maven.compiler.target>17</maven.compiler.target>
+			<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+			<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+			<!-- Версии зависимостей -->
+			<springdoc.version>2.2.0</springdoc.version>
+			<mapstruct.version>1.5.5.Final</mapstruct.version>
+			<lombok.version>1.18.36</lombok.version>
+			<postgresql.version>42.7.1</postgresql.version>
+		</properties>
+
+		<!-- ================================================ -->
+		<!-- ЗАВИСИМОСТИ ТОЛЬКО ДЛЯ ТЕКУЩЕГО ЭТАПА            -->
+		<!-- ================================================ -->
+		<dependencies>
+			<!-- Spring Boot Web - для создания REST API -->
+			<dependency>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-starter-web</artifactId>
+			</dependency>
+
+			<!-- Spring Boot Security - для авторизации и аутентификации -->
+			<dependency>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-starter-security</artifactId>
+			</dependency>
+
+			<!-- Spring Data JPA - для работы с базой данных -->
+			<dependency>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-starter-data-jpa</artifactId>
+			</dependency>
+
+			<!-- Validation - для валидации DTO -->
+			<dependency>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-starter-validation</artifactId>
+			</dependency>
+
+			<!-- PostgreSQL Driver - для подключения к PostgreSQL -->
+			<dependency>
+				<groupId>org.postgresql</groupId>
+				<artifactId>postgresql</artifactId>
+				<version>${postgresql.version}</version>
+				<scope>runtime</scope>
+			</dependency>
+
+			<!-- OpenAPI / Swagger - для документации API -->
+			<dependency>
+				<groupId>org.springdoc</groupId>
+				<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+				<version>${springdoc.version}</version>
+			</dependency>
+
+			<!-- Lombok - для сокращения кода (геттеры, сеттеры, конструкторы) -->
+			<dependency>
+				<groupId>org.projectlombok</groupId>
+				<artifactId>lombok</artifactId>
+				<version>1.18.36</version>
+				<scope>provided</scope>
+			</dependency>
+
+			<!-- MapStruct - для маппинга DTO ↔ Entity -->
+			<dependency>
+				<groupId>org.mapstruct</groupId>
+				<artifactId>mapstruct</artifactId>
+				<version>${mapstruct.version}</version>
+			</dependency>
+
+			<!-- MapStruct Processor - для генерации кода мапперов -->
+			<dependency>
+				<groupId>org.mapstruct</groupId>
+				<artifactId>mapstruct-processor</artifactId>
+				<version>${mapstruct.version}</version>
+				<scope>provided</scope>
+			</dependency>
+
+			<!-- Spring Boot Configuration Processor - для подсказок в application.properties -->
+			<dependency>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-configuration-processor</artifactId>
+				<optional>true</optional>
+			</dependency>
+
+			<!-- Spring Boot Actuator - для мониторинга приложения -->
+			<dependency>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-starter-actuator</artifactId>
+			</dependency>
+
+			<!-- Spring Boot DevTools - для автоматической перезагрузки при разработке -->
+			<dependency>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-devtools</artifactId>
+				<scope>runtime</scope>
+				<optional>true</optional>
+			</dependency>
+
+			<!-- ==================== ТЕСТОВЫЕ ЗАВИСИМОСТИ ==================== -->
+			<dependency>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-starter-test</artifactId>
+				<scope>test</scope>
+			</dependency>
+
+			<dependency>
+				<groupId>org.springframework.security</groupId>
+				<artifactId>spring-security-test</artifactId>
+				<scope>test</scope>
+			</dependency>
+		</dependencies>
+
+		<!-- ================================================ -->
+		<!-- СБОРКА ПРОЕКТА                                  -->
+		<!-- ================================================ -->
+		<build>
+			<finalName>${project.artifactId}</finalName>
+
+			<plugins>
+				<!-- Spring Boot Maven Plugin -->
+				<plugin>
+					<groupId>org.springframework.boot</groupId>
+					<artifactId>spring-boot-maven-plugin</artifactId>
+					<configuration>
+						<excludes>
+							<exclude>
+								<groupId>org.projectlombok</groupId>
+								<artifactId>lombok</artifactId>
+							</exclude>
+						</excludes>
+					</configuration>
+				</plugin>
+
+				<!-- Maven Compiler Plugin -->
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-compiler-plugin</artifactId>
+					<version>3.11.0</version>
+					<configuration>
+						<source>${java.version}</source>
+						<target>${java.version}</target>
+						<encoding>UTF-8</encoding>
+
+						<!-- Annotation Processors для Lombok и MapStruct -->
+						<annotationProcessorPaths>
+							<!-- Lombok (должен быть ПЕРВЫМ) -->
+							<path>
+								<groupId>org.projectlombok</groupId>
+								<artifactId>lombok</artifactId>
+								<version>1.18.36</version>
+							</path>
+							<!-- MapStruct (должен быть ВТОРЫМ) -->
+							<path>
+								<groupId>org.mapstruct</groupId>
+								<artifactId>mapstruct-processor</artifactId>
+								<version>${mapstruct.version}</version>
+							</path>
+							<!-- Spring Boot Configuration Processor -->
+							<path>
+								<groupId>org.springframework.boot</groupId>
+								<artifactId>spring-boot-configuration-processor</artifactId>
+								<version>3.2.0</version>
+							</path>
+						</annotationProcessorPaths>
+
+						<!-- Дополнительные аргументы компилятора для MapStruct -->
+						<compilerArgs>
+							<!-- Игнорируем неотображенные поля -->
+							<arg>-Amapstruct.unmappedTargetPolicy=IGNORE</arg>
+							<!-- Используем Spring компонентную модель -->
+							<arg>-Amapstruct.defaultComponentModel=spring</arg>
+							<!-- Включаем verbose режим (помогает при отладке) -->
+							<arg>-Amapstruct.verbose=true</arg>
+							<!-- Отключаем генерацию временных меток -->
+							<arg>-Amapstruct.suppressGeneratorTimestamp=true</arg>
+						</compilerArgs>
+					</configuration>
+				</plugin>
+
+				<!-- Maven Surefire Plugin для тестов -->
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-surefire-plugin</artifactId>
+					<version>3.2.3</version>
+					<configuration>
+						<includes>
+							<include>**/*Test.java</include>
+							<include>**/*Tests.java</include>
+						</includes>
+						<argLine>
+							-Xmx1024m
+							-XX:+UseG1GC
+						</argLine>
+					</configuration>
+				</plugin>
+			</plugins>
+		</build>
+	</project>
