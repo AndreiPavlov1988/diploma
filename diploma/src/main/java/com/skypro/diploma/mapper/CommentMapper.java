@@ -3,9 +3,11 @@ package com.skypro.diploma.mapper;
 import com.skypro.diploma.dto.comment.CommentDto;
 import com.skypro.diploma.dto.comment.CreateCommentReq;
 import com.skypro.diploma.entity.Comment;
+import com.skypro.diploma.entity.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
+import org.mapstruct.Named;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 
 import java.util.List;
@@ -14,16 +16,23 @@ import java.util.List;
         nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
 public interface CommentMapper {
 
+    @Named("userToAuthorName")
+    default String mapUserToAuthorName(User user) {
+        if (user == null) return null;
+        return user.getFirstName() + " " + user.getLastName();
+    }
+
     // Entity -> CommentDto
     @Mapping(target = "author", source = "author.id")
-    @Mapping(target = "authorName", source = "author")
+    @Mapping(target = "authorName", source = "author", qualifiedByName = "userToAuthorName")
+    @Mapping(target = "createdAt", source = "createdAt", dateFormat = "yyyy-MM-dd HH:mm:ss")
     CommentDto toDto(Comment comment);
 
     // CreateCommentReq -> Entity
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "active", ignore = true)        // ← ИСПРАВЛЕНО: active вместо isActive
+    @Mapping(target = "active", ignore = true)
     @Mapping(target = "author", ignore = true)
     @Mapping(target = "ad", ignore = true)
     Comment toEntity(CreateCommentReq createCommentReq);
@@ -32,11 +41,10 @@ public interface CommentMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "active", ignore = true)        // ← ИСПРАВЛЕНО: active вместо isActive
+    @Mapping(target = "active", ignore = true)
     @Mapping(target = "author", ignore = true)
     @Mapping(target = "ad", ignore = true)
     void updateCommentFromDto(CreateCommentReq createCommentReq, @MappingTarget Comment comment);
 
-    // Список Entity -> список DTO
     List<CommentDto> toDtoList(List<Comment> comments);
 }
