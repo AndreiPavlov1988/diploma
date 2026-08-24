@@ -73,6 +73,12 @@
 				<scope>runtime</scope>
 			</dependency>
 
+			<!-- Liquibase - миграции базы данных -->
+			<dependency>
+				<groupId>org.liquibase</groupId>
+				<artifactId>liquibase-core</artifactId>
+			</dependency>
+
 			<!-- OpenAPI / Swagger - для документации API -->
 			<dependency>
 				<groupId>org.springdoc</groupId>

@@ -198,6 +198,22 @@ paths:
         '401':
           description: Пользователь не авторизован
 
+  /ads/me:
+    get:
+      tags:
+        - Объявления
+      summary: Получение объявлений авторизованного пользователя
+      operationId: getMyAds
+      responses:
+        '200':
+          description: Список объявлений пользователя получен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdsDto'
+        '401':
+          description: Пользователь не авторизован
+
   /ads/{id}:
     get:
       tags:
@@ -467,38 +483,6 @@ paths:
           required: true
           schema:
             type: string
-      responses:
-        '200':
-          description: Изображение найдено
-          content:
-            image/jpeg:
-              schema:
-                type: string
-                format: binary
-            image/png:
-              schema:
-                type: string
-                format: binary
-            image/gif:
-              schema:
-                type: string
-                format: binary
-        '404':
-          description: Изображение не найдено
-
-  /images/{imageId}:
-    get:
-      tags:
-        - Изображения
-      summary: Получить изображение по ID
-      operationId: getImageById
-      parameters:
-        - name: imageId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
       responses:
         '200':
           description: Изображение найдено
