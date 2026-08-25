@@ -1,0 +1,807 @@
+openapi: 3.0.3
+info:
+  title: Diploma API - Платформа перепродажи вещей
+  description: API для платформы объявлений с авторизацией, комментариями и изображениями
+  version: '1.0.0'
+servers:
+  - url: http://localhost:8080
+    description: Локальный сервер разработки
+
+tags:
+  - name: Аутентификация
+    description: API для авторизации и регистрации пользователей
+  - name: Пользователи
+    description: API для управления профилем пользователя
+  - name: Объявления
+    description: API для управления объявлениями
+  - name: Комментарии
+    description: API для управления комментариями к объявлениям
+  - name: Изображения
+    description: API для получения изображений
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Аутентификация
+      summary: Авторизация пользователя
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginReq'
+      responses:
+        '200':
+          description: Успешная авторизация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResp'
+        '400':
+          description: Неверный формат запроса
+        '401':
+          description: Неверные учетные данные
+
+  /auth/register:
+    post:
+      tags:
+        - Аутентификация
+      summary: Регистрация нового пользователя
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterReq'
+      responses:
+        '201':
+          description: Пользователь успешно зарегистрирован
+        '400':
+          description: Неверные данные в запросе
+        '409':
+          description: Пользователь с таким email уже существует
+
+  /users/me:
+    get:
+      tags:
+        - Пользователи
+      summary: Получение информации об авторизованном пользователе
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: Профиль пользователя получен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+        '401':
+          description: Пользователь не авторизован
+
+    patch:
+      tags:
+        - Пользователи
+      summary: Обновление информации об авторизованном пользователе
+      operationId: updateCurrentUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserReq'
+      responses:
+        '200':
+          description: Информация обновлена успешно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+        '400':
+          description: Неверные данные в запросе
+        '401':
+          description: Пользователь не авторизован
+
+  /users/me/password:
+    post:
+      tags:
+        - Пользователи
+      summary: Обновление пароля пользователя
+      operationId: updatePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewPasswordReq'
+      responses:
+        '200':
+          description: Пароль успешно обновлен
+        '400':
+          description: Неверный текущий пароль
+        '401':
+          description: Пользователь не авторизован
+
+  /users/me/image:
+    patch:
+      tags:
+        - Пользователи
+      summary: Обновление аватара пользователя
+      operationId: updateUserAvatar
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Аватар обновлен успешно
+          content:
+            text/plain:
+              schema:
+                type: string
+        '400':
+          description: Неверный формат файла
+        '401':
+          description: Пользователь не авторизован
+
+  /ads:
+    get:
+      tags:
+        - Объявления
+      summary: Получение всех объявлений
+      operationId: getAllAds
+      responses:
+        '200':
+          description: Список объявлений получен успешно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdsDto'
+
+
+    post:
+      tags:
+        - Объявления
+      summary: Создание нового объявления
+      operationId: createAd
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - properties
+              properties:
+                properties:
+                  $ref: '#/components/schemas/CreateAdReq'
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Объявление создано успешно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdDto'
+        '400':
+          description: Неверные данные в запросе
+        '401':
+          description: Пользователь не авторизован
+
+  /ads/me:
+    get:
+      tags:
+        - Объявления
+      summary: Получение объявлений авторизованного пользователя
+      operationId: getMyAds
+      responses:
+        '200':
+          description: Список объявлений пользователя получен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdsDto'
+        '401':
+          description: Пользователь не авторизован
+
+  /ads/{id}:
+    get:
+      tags:
+        - Объявления
+      summary: Получение объявления по ID
+      operationId: getAd
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Объявление найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FullAdDto'
+
+            '404':
+          description: Объявление не найдено
+
+    patch:
+      tags:
+        - Объявления
+      summary: Обновление объявления
+      operationId: updateAd
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAdReq'
+      responses:
+        '200':
+          description: Объявление обновлено успешно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdDto'
+        '400':
+          description: Неверные данные в запросе
+        '401':
+          description: Пользователь не авторизован
+        '403':
+          description: Нет прав на редактирование
+        '404':
+          description: Объявление не найдено
+
+    delete:
+      tags:
+        - Объявления
+      summary: Удаление объявления
+      operationId: deleteAd
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Объявление удалено успешно
+        '401':
+          description: Пользователь не авторизован
+        '403':
+          description: Нет прав на удаление
+        '404':
+          description: Объявление не найдено
+
+  /ads/{id}/image:
+    patch:
+      tags:
+        - Объявления
+      summary: Обновление изображения объявления
+      operationId: updateAdImage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Изображение обновлено успешно
+          content:
+            text/plain:
+              schema:
+                type: string
+        '400':
+          description: Неверный формат файла
+        '401':
+          description: Пользователь не авторизован
+        '403':
+          description: Нет прав на изменение
+        '404':
+          description: Объявление не найдено
+
+  /ads/{adId}/comments:
+    get:
+      tags:
+        - Комментарии
+      summary: Получение комментариев объявления
+      operationId: getComments
+      parameters:
+        - name: adId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Список комментариев получен успешно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentsDto'
+        '401':
+          description: Пользователь не авторизован
+        '404':
+          description: Объявление не найдено
+
+    post:
+      tags:
+        - Комментарии
+      summary: Добавление комментария к объявлению
+      operationId: addComment
+      parameters:
+        - name: adId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommentReq'
+      responses:
+        '200':
+          description: Комментарий добавлен успешно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentDto'
+        '400':
+          description: Неверные данные в запросе
+        '401':
+          description: Пользователь не авторизован
+        '404':
+          description: Объявление не найдено
+
+  /ads/{adId}/comments/{commentId}:
+    patch:
+      tags:
+        - Комментарии
+      summary: Обновление комментария
+      operationId: updateComment
+      parameters:
+        - name: adId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommentReq'
+      responses:
+        '200':
+          description: Комментарий обновлен успешно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentDto'
+        '400':
+          description: Неверные данные в запросе
+        '401':
+          description: Пользователь не авторизован
+        '403':
+          description: Нет прав на редактирование
+        '404':
+          description: Комментарий не найден
+
+    delete:
+      tags:
+        - Комментарии
+      summary: Удаление комментария
+      operationId: deleteComment
+      parameters:
+        - name: adId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Комментарий удален успешно
+        '401':
+          description: Пользователь не авторизован
+        '403':
+          description: Нет прав на удаление
+        '404':
+          description: Комментарий не найден
+
+  /images/{type}/{id}/{filename}:
+    get:
+      tags:
+        - Изображения
+      summary: Получить изображение
+      operationId: getImage
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Изображение найдено
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/gif:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Изображение не найдено
+
+components:
+  schemas:
+    LoginReq:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: john@example.com
+        password:
+          type: string
+          example: password123
+
+    LoginResp:
+      type: object
+      description: Ответ при успешной авторизации (данные вошедшего пользователя)
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        username:
+          type: string
+          example: john@example.com
+        firstName:
+          type: string
+          example: John
+        lastName:
+          type: string
+          example: Doe
+        role:
+          type: string
+          enum:
+            - USER
+            - ADMIN
+          example: USER
+
+    RegisterReq:
+      type: object
+      required:
+        - username
+        - password
+        - firstName
+        - lastName
+        - phone
+      properties:
+        username:
+          type: string
+          example: john@example.com
+        password:
+          type: string
+          example: password123
+        firstName:
+          type: string
+          example: John
+        lastName:
+          type: string
+          example: Doe
+        phone:
+          type: string
+          example: "+7 999 123-45-67"
+        role:
+          type: string
+          enum:
+            - USER
+            - ADMIN
+          default: USER
+
+    UserDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        username:
+          type: string
+          example: john@example.com
+        firstName:
+          type: string
+          example: John
+        lastName:
+          type: string
+          example: Doe
+        phone:
+          type: string
+          example: "+7 999 123-45-67"
+        role:
+          type: string
+          enum:
+            - USER
+            - ADMIN
+        image:
+          type: string
+          example: /images/users/1/avatar.jpg
+
+    UpdateUserReq:
+      type: object
+      required:
+        - firstName
+        - lastName
+        - phone
+      properties:
+        firstName:
+          type: string
+          example: John
+        lastName:
+          type: string
+          example: Doe
+        phone:
+          type: string
+          example: "+7 999 123-45-67"
+
+    NewPasswordReq:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+      properties:
+        currentPassword:
+          type: string
+          example: oldPassword123
+        newPassword:
+          type: string
+          example: newPassword123
+
+    AdDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        title:
+          type: string
+          example: iPhone 15 Pro
+        price:
+          type: integer
+          format: int32
+          example: 99900
+        description:
+          type: string
+          example: Отличный смартфон в идеальном состоянии
+        author:
+          type: integer
+          format: int64
+          example: 1
+        image:
+          type: string
+          example: /images/ads/1/photo.jpg
+        createdAt:
+          type: string
+          example: "2026-08-12 10:30:00"
+
+    FullAdDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        title:
+          type: string
+          example: iPhone 15 Pro
+        price:
+          type: integer
+          format: int32
+          example: 99900
+        description:
+          type: string
+          example: Отличный смартфон в идеальном состоянии
+        author:
+          type: integer
+          format: int64
+          example: 1
+        authorName:
+          type: string
+          example: John Doe
+        image:
+          type: string
+          example: /images/ads/1/photo.jpg
+        createdAt:
+          type: string
+          example: "2026-08-12 10:30:00"
+
+    AdsDto:
+      type: object
+      properties:
+        count:
+          type: integer
+          format: int32
+          example: 10
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdDto'
+
+    CreateAdReq:
+      type: object
+      required:
+        - title
+        - price
+        - description
+      properties:
+        title:
+          type: string
+          example: iPhone 15 Pro
+        price:
+          type: integer
+          format: int32
+          example: 99900
+        description:
+          type: string
+          example: Отличный смартфон в идеальном состоянии
+
+    UpdateAdReq:
+      type: object
+      required:
+        - title
+        - price
+        - description
+      properties:
+        title:
+          type: string
+          example: iPhone 15 Pro
+        price:
+          type: integer
+          format: int32
+          example: 99900
+        description:
+          type: string
+          example: Отличный смартфон в идеальном состоянии
+
+    CommentDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        author:
+          type: integer
+          format: int64
+          example: 1
+        authorName:
+          type: string
+          example: John Doe
+        text:
+          type: string
+          example: Отличное предложение!
+        createdAt:
+          type: string
+          example: "2026-08-12 10:30:00"
+
+    CommentsDto:
+      type: object
+      properties:
+        count:
+          type: integer
+          format: int32
+          example: 5
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommentDto'
+
+    CreateCommentReq:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          example: Отличное предложение!
+
+    ImageDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        url:
+          type: string
+          example: /images/ads/1/photo.jpg
+        fileName:
+          type: string
+          example: photo.jpg
+        fileSize:
+          type: integer
+          format: int64
+          example: 1024000
+        contentType:
+          type: string
+          example: image/jpeg
+
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+
+security:
+  - basicAuth: []

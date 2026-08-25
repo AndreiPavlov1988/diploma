@@ -33,7 +33,7 @@
 			<!-- Версии зависимостей -->
 			<springdoc.version>2.2.0</springdoc.version>
 			<mapstruct.version>1.5.5.Final</mapstruct.version>
-			<lombok.version>1.18.36</lombok.version>
+			<lombok.version>1.18.30</lombok.version>
 			<postgresql.version>42.7.1</postgresql.version>
 		</properties>
 
@@ -73,6 +73,12 @@
 				<scope>runtime</scope>
 			</dependency>
 
+			<!-- Liquibase - миграции базы данных -->
+			<dependency>
+				<groupId>org.liquibase</groupId>
+				<artifactId>liquibase-core</artifactId>
+			</dependency>
+
 			<!-- OpenAPI / Swagger - для документации API -->
 			<dependency>
 				<groupId>org.springdoc</groupId>
@@ -84,7 +90,7 @@
 			<dependency>
 				<groupId>org.projectlombok</groupId>
 				<artifactId>lombok</artifactId>
-				<version>1.18.36</version>
+				<version>1.18.30</version>
 				<scope>provided</scope>
 			</dependency>
 
@@ -175,7 +181,7 @@
 							<path>
 								<groupId>org.projectlombok</groupId>
 								<artifactId>lombok</artifactId>
-								<version>1.18.36</version>
+								<version>1.18.30</version>
 							</path>
 							<!-- MapStruct (должен быть ВТОРЫМ) -->
 							<path>
