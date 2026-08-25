@@ -8,25 +8,25 @@ import java.util.List;
 
 /**
  * Репозиторий для работы с сущностью {@link Ad}.
- * Предоставляет стандартные CRUD-операции и кастомные методы поиска.
  */
 @Repository
 public interface AdRepository extends JpaRepository<Ad, Long> {
 
     /**
-     * Найти все объявления конкретного автора.
-     * Используется для эндпоинта GET /ads/me (объявления текущего пользователя).
-     *
-     * @param authorId ID автора
-     * @return список объявлений автора
-     */
-    List<Ad> findAllByAuthorId(Long authorId);
-
-    /**
-     * Найти все активные объявления, отсортированные по дате создания
-     * (сначала новые). Используется для эндпоинта GET /ads.
+     * Найти все активные объявления (новые сверху).
+     * Используется для GET /ads.
      *
      * @return список активных объявлений
      */
     List<Ad> findAllByActiveTrueOrderByCreatedAtDesc();
+
+    /**
+     * 🆕 Найти все АКТИВНЫЕ объявления автора.
+     * Мягко удалённые (is_active = false) НЕ возвращаются —
+     * исправляет замечание наставника про /ads/me.
+     *
+     * @param authorId ID автора
+     * @return список активных объявлений автора
+     */
+    List<Ad> findAllByAuthorIdAndActiveTrue(Long authorId);
 }

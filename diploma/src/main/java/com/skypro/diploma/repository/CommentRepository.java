@@ -7,35 +7,24 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 /**
- * Репозиторий для работы с сущностью {@link Comment}.
- * Предоставляет стандартные CRUD-операции и кастомные методы поиска.
+ * Репозиторий для работы с сущностью Comment.
  */
 @Repository
 public interface CommentRepository extends JpaRepository<Comment, Long> {
 
     /**
-     * Найти все комментарии к объявлению, отсортированные по дате создания
-     * (сначала старые). Используется для эндпоинта GET /ads/{adId}/comments.
-     *
-     * @param adId ID объявления
-     * @return список комментариев к объявлению
+     * Найти все АКТИВНЫЕ комментарии к объявлению (старые сверху).
+     * Мягко удалённые (is_active = false) НЕ возвращаются.
      */
-    List<Comment> findAllByAdIdOrderByCreatedAtAsc(Long adId);
+    List<Comment> findAllByAdIdAndActiveTrueOrderByCreatedAtAsc(Long adId);
 
     /**
      * Найти все комментарии конкретного автора.
-     * Может пригодиться для проверки прав при удалении/редактировании.
-     *
-     * @param authorId ID автора
-     * @return список комментариев автора
      */
     List<Comment> findAllByAuthorId(Long authorId);
 
     /**
      * Проверить, существуют ли комментарии у объявления.
-     *
-     * @param adId ID объявления
-     * @return true, если у объявления есть комментарии
      */
     boolean existsByAdId(Long adId);
 }

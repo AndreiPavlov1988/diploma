@@ -17,67 +17,59 @@ import org.springframework.security.web.SecurityFilterChain;
 import static org.springframework.security.config.Customizer.withDefaults;
 
 /**
- * Конфигурация Spring Security (требование ТЗ Этапа III).
- *
- * Настраивает:
- * 1. Какие эндпоинты открыты без входа, а какие требуют авторизации
- * 2. Basic-аутентификацию (её использует фронтенд)
- * 3. Шифрование паролей алгоритмом BCrypt
- * 4. Отключение сессий (REST API должен быть stateless)
+ * Конфигурация Spring Security.
  */
-@Configuration          // класс-конфигурация Spring
-@EnableWebSecurity      // включает Spring Security
-@EnableMethodSecurity   // включает аннотацию @PreAuthorize для проверки ролей в методах
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
-    /**
-     * Шифровальщик паролей.
-     * BCrypt — индустриальный стандарт: пароль хранится в БД в виде необратимого хэша.
-     * Используется при регистрации (шифруем) и при входе (сравниваем).
-     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    /**
-     * Менеджер аутентификации.
-     * Нужен контроллеру /login, чтобы программно проверить логин и пароль.
-     */
     @Bean
     public AuthenticationManager authenticationManager(
             AuthenticationConfiguration authenticationConfiguration) throws Exception {
         return authenticationConfiguration.getAuthenticationManager();
     }
 
-    /**
-     * Цепочка фильтров безопасности — ГЛАВНЫЙ метод конфигурации.
-     * Определяет правила доступа ко всем эндпоинтам приложения.
-     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // 1. Отключаем CSRF-защиту: она нужна для сайтов с сессиями,
-                //    а у нас REST API с Basic Auth — CSRF не нужен
                 .csrf(AbstractHttpConfigurer::disable)
-
-                // 2. Настраиваем правила доступа к эндпоинтам
                 .authorizeHttpRequests(auth -> auth
-                        // ===== ОТКРЫТО ДЛЯ ВСЕХ (без входа) =====
+                        // ===== ОТКРЫТО ДЛЯ ВСЕХ (без авторизации) =====
                         .requestMatchers("/auth/login", "/auth/register").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html",
                                 "/api-docs/**", "/v3/api-docs/**").permitAll()
+
+                        // 🆕 Просмотр объявлений ОТКРЫТ — требование ТЗ
+                        .requestMatchers(HttpMethod.GET, "/ads").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/ads/{id}").permitAll()
+
+                        // 🆕 Картинки объявлений и аватарки открыты (они нужны для отображения)
                         .requestMatchers(HttpMethod.GET, "/images/**").permitAll()
 
-                        // ===== ВСЁ ОСТАЛЬНОЕ — ТОЛЬКО ДЛЯ АВТОРИЗОВАННЫХ =====
+                        // ===== ТРЕБУЕТ АВТОРИЗАЦИИ =====
+                        // Создание/редактирование/удаление объявлений
+                        .requestMatchers(HttpMethod.POST, "/ads").authenticated()
+                        .requestMatchers(HttpMethod.PATCH, "/ads/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/ads/**").authenticated()
+
+                        // Мои объявления
+                        .requestMatchers(HttpMethod.GET, "/ads/me").authenticated()
+
+                        // Комментарии (все операции требуют входа)
+                        .requestMatchers("/ads/*/comments/**").authenticated()
+
+                        // Профиль пользователя
+                        .requestMatchers("/users/me/**").authenticated()
+
                         .anyRequest().authenticated()
                 )
-
-                // 3. Включаем Basic-аутентификацию (логин:пароль в заголовке Authorization)
-                //    Именно её использует фронтенд согласно ТЗ
                 .httpBasic(withDefaults())
-
-                // 4. Отключаем сессии: каждый запрос проверяется заново (stateless)
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 );

@@ -25,10 +25,9 @@ import java.util.List;
 /**
  * Сервис для работы с объявлениями.
  *
- * Содержит:
- * - CRUD операции (создать, получить, обновить, удалить)
- * - Проверку прав доступа (автор или администратор)
- * - Работу с изображениями через ImageService
+ * 🆕 Все операции учитывают признак активности (soft-delete):
+ * - списки возвращают только активные объявления;
+ * - изменение/удаление удалённого объявления → 404.
  */
 @Slf4j
 @Service
@@ -41,8 +40,8 @@ public class AdService {
     private final ImageService imageService;
 
     /**
-     * Получить ВСЕ объявления (только активные, отсортированные по дате — новые сверху).
-     * Используется для эндпоинта GET /ads.
+     * Получить ВСЕ активные объявления (новые сверху).
+     * GET /ads — доступен без авторизации.
      */
     public AdsDto getAllAds() {
         List<Ad> ads = adRepository.findAllByActiveTrueOrderByCreatedAtDesc();
@@ -56,12 +55,12 @@ public class AdService {
     }
 
     /**
-     * Получить объявления ТЕКУЩЕГО пользователя (только активные).
-     * Используется для эндпоинта GET /ads/me.
+     * 🆕 Получить АКТИВНЫЕ объявления текущего пользователя.
+     * GET /ads/me — удалённые объявления больше не показываются в профиле.
      */
     public AdsDto getMyAds() {
         User currentUser = userService.getCurrentUser();
-        List<Ad> ads = adRepository.findAllByAuthorId(currentUser.getId());
+        List<Ad> ads = adRepository.findAllByAuthorIdAndActiveTrue(currentUser.getId());
         List<AdDto> adDtos = adMapper.toDtoList(ads);
 
         AdsDto result = new AdsDto();
@@ -72,81 +71,52 @@ public class AdService {
     }
 
     /**
-     * Получить объявление по ID с ПОЛНОЙ информацией (включая имя автора).
-     * Используется для эндпоинта GET /ads/{id}.
+     * Получить активное объявление по ID с полной информацией.
+     * GET /ads/{id} — доступен без авторизации.
      *
-     * @param id ID объявления
      * @throws NotFoundException если объявление не найдено или удалено (→ 404)
      */
     public FullAdDto getAdById(Long id) {
-        Ad ad = adRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Объявление с id=" + id + " не найдено"));
-
-        if (!ad.isActive()) {
-            throw new NotFoundException("Объявление с id=" + id + " удалено");
-        }
-
+        Ad ad = findActiveAd(id);
         return adMapper.toFullAdDto(ad);
     }
 
     /**
      * Создать новое объявление (возможно с изображением).
-     * Используется для эндпоинта POST /ads.
-     *
-     * Логика работы:
-     * 1. Сначала сохраняем объявление БЕЗ картинки (чтобы получить ID)
-     * 2. Если есть картинка — сохраняем её с этим ID
-     * 3. Обновляем путь к картинке в объявлении
-     *
-     * @param createAdReq данные объявления
-     * @param image       загруженный файл (может быть null)
-     * @return DTO созданного объявления с присвоенным ID
      */
     @Transactional
     public AdDto createAd(CreateAdReq createAdReq, MultipartFile image) throws IOException {
         User currentUser = userService.getCurrentUser();
 
-        // 1. DTO -> Entity
         Ad ad = adMapper.toEntity(createAdReq);
         ad.setAuthor(currentUser);
         ad.setActive(true);
         ad.setCreatedAt(LocalDateTime.now());
         ad.setUpdatedAt(LocalDateTime.now());
 
-        // 2. Сохраняем БЕЗ картинки (нужен ID для пути файла)
+        // Сохраняем без картинки, чтобы получить ID
         ad = adRepository.save(ad);
-        log.info("Создано объявление без картинки: id={}, автор={}",
-                ad.getId(), currentUser.getUsername());
 
-        // 3. Если есть картинка — сохраняем её
+        // Если есть картинка — сохраняем её с полученным ID
         if (image != null && !image.isEmpty()) {
             String imagePath = imageService.saveImage(image, "ads", ad.getId());
             ad.setImagePath(imagePath);
             ad = adRepository.save(ad);
-            log.info("Добавлена картинка к объявлению: id={}", ad.getId());
         }
 
+        log.info("Создано объявление: id={}, автор={}", ad.getId(), currentUser.getUsername());
         return adMapper.toDto(ad);
     }
 
     /**
      * Обновить объявление (только автор или администратор).
-     * Используется для эндпоинта PATCH /ads/{id}.
-     *
-     * @param id        ID объявления
-     * @param updateReq новые данные
-     * @throws NotFoundException  если объявление не найдено (→ 404)
-     * @throws ForbiddenException если нет прав (→ 403)
+     * 🆕 Обновление удалённого объявления → 404.
      */
     @Transactional
     public AdDto updateAd(Long id, UpdateAdReq updateReq) {
-        Ad ad = adRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Объявление с id=" + id + " не найдено"));
-
-        // Проверяем права ДО изменений
+        Ad ad = findActiveAd(id);
         checkPermission(ad);
 
-        // Обновляем поля через MapStruct
         adMapper.updateAdFromDto(updateReq, ad);
         ad.setUpdatedAt(LocalDateTime.now());
 
@@ -157,17 +127,12 @@ public class AdService {
     }
 
     /**
-     * Удалить объявление (только автор или администратор).
-     * Используется для эндпоинта DELETE /ads/{id}.
-     *
-     * Используем "мягкое удаление" — не удаляем из БД, а помечаем как неактивное.
-     * Это сохраняет целостность данных (комментарии, связи).
+     * Удалить объявление (мягкое удаление, только автор или администратор).
+     * 🆕 Повторное удаление уже удалённого → 404.
      */
     @Transactional
     public void deleteAd(Long id) {
-        Ad ad = adRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Объявление с id=" + id + " не найдено"));
-
+        Ad ad = findActiveAd(id);
         checkPermission(ad);
 
         ad.setActive(false);
@@ -177,17 +142,10 @@ public class AdService {
 
     /**
      * Обновить изображение объявления (только автор или администратор).
-     * Используется для эндпоинта PATCH /ads/{id}/image.
-     *
-     * @param id    ID объявления
-     * @param image новый файл изображения
-     * @return URL новой картинки
      */
     @Transactional
     public String updateAdImage(Long id, MultipartFile image) throws IOException {
-        Ad ad = adRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Объявление с id=" + id + " не найдено"));
-
+        Ad ad = findActiveAd(id);
         checkPermission(ad);
 
         String imagePath = imageService.saveImage(image, "ads", id);
@@ -200,14 +158,22 @@ public class AdService {
     }
 
     /**
-     * Проверка прав доступа к объявлению.
-     *
-     * По ТЗ:
-     * - Обычный пользователь может редактировать/удалять ТОЛЬКО свои объявления
-     * - Администратор может редактировать/удалять ЛЮБЫЕ объявления
-     *
-     * @param ad объявление, к которому обращается пользователь
-     * @throws ForbiddenException если нет прав (→ 403)
+     * 🆕 Найти АКТИВНОЕ объявление по ID.
+     * Если объявления нет или оно мягко удалено — 404.
+     * Единая точка проверки активности для всех операций.
+     */
+    private Ad findActiveAd(Long id) {
+        Ad ad = adRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Объявление с id=" + id + " не найдено"));
+
+        if (!ad.isActive()) {
+            throw new NotFoundException("Объявление с id=" + id + " удалено");
+        }
+        return ad;
+    }
+
+    /**
+     * Проверка прав доступа к объявлению (автор или администратор).
      */
     private void checkPermission(Ad ad) {
         User currentUser = userService.getCurrentUser();

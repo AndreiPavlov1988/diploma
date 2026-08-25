@@ -22,11 +22,6 @@ import java.util.List;
 
 /**
  * Сервис для работы с комментариями к объявлениям.
- *
- * Содержит:
- * - Получение списка комментариев к объявлению
- * - Создание/обновление/удаление комментариев
- * - Проверку прав доступа (автор или администратор)
  */
 @Slf4j
 @Service
@@ -38,20 +33,12 @@ public class CommentService {
     private final CommentMapper commentMapper;
     private final UserService userService;
 
-    /**
-     * Получить все комментарии к объявлению (отсортированы по дате — старые сверху).
-     * Используется для эндпоинта GET /ads/{adId}/comments.
-     *
-     * @param adId ID объявления
-     * @throws NotFoundException если объявление не найдено (→ 404)
-     */
     public CommentsDto getCommentsByAdId(Long adId) {
-        // Проверяем, что объявление существует
-        if (!adRepository.existsById(adId)) {
-            throw new NotFoundException("Объявление с id=" + adId + " не найдено");
-        }
+        Ad ad = findActiveAd(adId);
 
-        List<Comment> comments = commentRepository.findAllByAdIdOrderByCreatedAtAsc(adId);
+        // 🆕 Только активные комментарии
+        List<Comment> comments =
+                commentRepository.findAllByAdIdAndActiveTrueOrderByCreatedAtAsc(ad.getId());
         List<CommentDto> commentDtos = commentMapper.toDtoList(comments);
 
         CommentsDto result = new CommentsDto();
@@ -61,23 +48,12 @@ public class CommentService {
         return result;
     }
 
-    /**
-     * Добавить комментарий к объявлению.
-     * Используется для эндпоинта POST /ads/{adId}/comments.
-     *
-     * @param adId            ID объявления
-     * @param createCommentReq текст комментария
-     * @return DTO созданного комментария
-     * @throws NotFoundException если объявление не найдено (→ 404)
-     */
     @Transactional
     public CommentDto addComment(Long adId, CreateCommentReq createCommentReq) {
-        Ad ad = adRepository.findById(adId)
-                .orElseThrow(() -> new NotFoundException("Объявление с id=" + adId + " не найдено"));
+        Ad ad = findActiveAd(adId);
 
         User currentUser = userService.getCurrentUser();
 
-        // DTO -> Entity
         Comment comment = commentMapper.toEntity(createCommentReq);
         comment.setAd(ad);
         comment.setAuthor(currentUser);
@@ -92,32 +68,11 @@ public class CommentService {
         return commentMapper.toDto(comment);
     }
 
-    /**
-     * Обновить комментарий (только автор или администратор).
-     * Используется для эндпоинта PATCH /ads/{adId}/comments/{commentId}.
-     *
-     * @param adId            ID объявления (для проверки принадлежности)
-     * @param commentId       ID комментария
-     * @param createCommentReq новый текст
-     * @throws NotFoundException  если комментарий не найден (→ 404)
-     * @throws ForbiddenException если нет прав (→ 403)
-     */
     @Transactional
     public CommentDto updateComment(Long adId, Long commentId, CreateCommentReq createCommentReq) {
-        Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new NotFoundException(
-                        "Комментарий с id=" + commentId + " не найден"));
-
-        // Защита от подмены adId в URL
-        if (!comment.getAd().getId().equals(adId)) {
-            throw new NotFoundException(
-                    "Комментарий с id=" + commentId + " не принадлежит объявлению " + adId);
-        }
-
-        // Проверяем права
+        Comment comment = findCommentInAd(adId, commentId);
         checkPermission(comment);
 
-        // Обновляем текст
         commentMapper.updateCommentFromDto(createCommentReq, comment);
         comment.setUpdatedAt(LocalDateTime.now());
 
@@ -127,21 +82,9 @@ public class CommentService {
         return commentMapper.toDto(comment);
     }
 
-    /**
-     * Удалить комментарий (мягкое удаление, только автор или администратор).
-     * Используется для эндпоинта DELETE /ads/{adId}/comments/{commentId}.
-     */
     @Transactional
     public void deleteComment(Long adId, Long commentId) {
-        Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new NotFoundException(
-                        "Комментарий с id=" + commentId + " не найден"));
-
-        if (!comment.getAd().getId().equals(adId)) {
-            throw new NotFoundException(
-                    "Комментарий с id=" + commentId + " не принадлежит объявлению " + adId);
-        }
-
+        Comment comment = findCommentInAd(adId, commentId);
         checkPermission(comment);
 
         comment.setActive(false);
@@ -149,16 +92,32 @@ public class CommentService {
         log.info("Удален комментарий (мягкое удаление): id={}", commentId);
     }
 
-    /**
-     * Проверка прав доступа к комментарию.
-     *
-     * По ТЗ:
-     * - Обычный пользователь может редактировать/удалять ТОЛЬКО свои комментарии
-     * - Администратор может редактировать/удалять ЛЮБЫЕ комментарии
-     *
-     * @param comment комментарий
-     * @throws ForbiddenException если нет прав (→ 403)
-     */
+    private Ad findActiveAd(Long adId) {
+        Ad ad = adRepository.findById(adId)
+                .orElseThrow(() -> new NotFoundException("Объявление с id=" + adId + " не найдено"));
+
+        if (!ad.isActive()) {
+            throw new NotFoundException("Объявление с id=" + adId + " удалено");
+        }
+        return ad;
+    }
+
+    private Comment findCommentInAd(Long adId, Long commentId) {
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new NotFoundException("Комментарий с id=" + commentId + " не найден"));
+
+        if (!comment.getAd().getId().equals(adId)) {
+            throw new NotFoundException(
+                    "Комментарий с id=" + commentId + " не принадлежит объявлению " + adId);
+        }
+
+        if (!comment.getAd().isActive()) {
+            throw new NotFoundException("Объявление с id=" + adId + " удалено");
+        }
+
+        return comment;
+    }
+
     private void checkPermission(Comment comment) {
         User currentUser = userService.getCurrentUser();
 

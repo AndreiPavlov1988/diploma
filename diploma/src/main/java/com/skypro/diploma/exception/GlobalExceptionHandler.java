@@ -14,96 +14,63 @@ import java.util.Map;
 /**
  * Глобальный обработчик исключений.
  *
- * Аннотация @RestControllerAdvice говорит Spring:
- * "Следи за ВСЕМИ контроллерами приложения. Если где-то возникнет исключение —
- * перехвати его здесь и верни правильный HTTP-ответ".
- *
- * Это избавляет нас от необходимости писать try-catch в каждом контроллере.
+ * 🆕 Исправлено замечание наставника: непредвиденные RuntimeException
+ * теперь возвращают 500 (ошибка сервера), а не 400 (ошибка клиента).
+ * Это позволяет отличать баги в коде от некорректных запросов клиента.
  */
-@Slf4j  // Lombok автоматически создает поле log для логирования
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    /**
-     * Обработчик NotFoundException.
-     * Возвращает HTTP 404 Not Found.
-     *
-     * @param ex перехваченное исключение
-     * @return ответ с кодом 404 и JSON {"message": "..."}
-     */
+    /** 404 — сущность не найдена */
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<Map<String, String>> handleNotFound(NotFoundException ex) {
-        log.warn("404 Not Found: {}", ex.getMessage());  // логируем в консоль
-        return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)  // код 404
-                .body(Map.of("message", ex.getMessage()));  // тело ответа
+        log.warn("404 Not Found: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("message", ex.getMessage()));
     }
 
-    /**
-     * Обработчик ForbiddenException.
-     * Возвращает HTTP 403 Forbidden (нет прав доступа).
-     */
+    /** 403 — нет прав доступа */
     @ExceptionHandler(ForbiddenException.class)
     public ResponseEntity<Map<String, String>> handleForbidden(ForbiddenException ex) {
         log.warn("403 Forbidden: {}", ex.getMessage());
-        return ResponseEntity
-                .status(HttpStatus.FORBIDDEN)  // код 403
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(Map.of("message", ex.getMessage()));
     }
 
-    /**
-     * Обработчик ConflictException.
-     * Возвращает HTTP 409 Conflict (например, email уже занят).
-     */
+    /** 409 — конфликт данных (email занят) */
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<Map<String, String>> handleConflict(ConflictException ex) {
         log.warn("409 Conflict: {}", ex.getMessage());
-        return ResponseEntity
-                .status(HttpStatus.CONFLICT)  // код 409
+        return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of("message", ex.getMessage()));
     }
 
-    /**
-     * Обработчик ошибок аутентификации Spring Security.
-     * Возвращает HTTP 401 Unauthorized.
-     *
-     * Срабатывает при неверном логине/пароле.
-     */
+    /** 401 — неверные учетные данные при входе */
     @ExceptionHandler({BadCredentialsException.class, UsernameNotFoundException.class})
     public ResponseEntity<Map<String, String>> handleUnauthorized(RuntimeException ex) {
         log.warn("401 Unauthorized: {}", ex.getMessage());
-        return ResponseEntity
-                .status(HttpStatus.UNAUTHORIZED)  // код 401
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(Map.of("message", "Неверные учетные данные"));
     }
 
-    /**
-     * Обработчик ошибок валидации (@Valid, @NotBlank и т.д.).
-     * Возвращает HTTP 400 Bad Request.
-     *
-     * Срабатывает, когда в запросе некорректные данные:
-     * пустое поле, неверный формат email, слишком короткий пароль.
-     */
+    /** 400 — ошибка валидации (@Valid) */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, String>> handleValidation(MethodArgumentNotValidException ex) {
-        log.warn("400 Bad Request: ошибка валидации - {}", ex.getMessage());
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)  // код 400
+        log.warn("400 Bad Request: ошибка валидации");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(Map.of("message", "Неверные данные в запросе"));
     }
 
     /**
-     * Обработчик всех остальных RuntimeException.
-     * Возвращает HTTP 400 Bad Request.
-     *
-     * Это "запасной" обработчик — если исключение не поймано выше,
-     * оно попадет сюда, и приложение не упадет с 500.
+     * 🆕 500 — ВНУТРЕННЯЯ ошибка сервера.
+     * Сюда попадают непредвиденные исключения (NullPointerException и т.п.).
+     * Клиент получает нейтральное сообщение, а полный стек остаётся в логах.
      */
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, String>> handleRuntime(RuntimeException ex) {
-        log.error("Необработанная ошибка: {}", ex.getMessage(), ex);  // логируем со стеком
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)  // код 400
-                .body(Map.of("message", ex.getMessage()));
+        log.error("Внутренняя ошибка сервера: {}", ex.getMessage(), ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("message", "Внутренняя ошибка сервера"));
     }
 }

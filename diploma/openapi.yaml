@@ -164,8 +164,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdsDto'
-        '401':
-          description: Пользователь не авторизован
+
 
     post:
       tags:
@@ -234,9 +233,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FullAdDto'
-        '401':
-          description: Пользователь не авторизован
-        '404':
+
+            '404':
           description: Объявление не найдено
 
     patch:
@@ -519,10 +517,27 @@ components:
 
     LoginResp:
       type: object
+      description: Ответ при успешной авторизации (данные вошедшего пользователя)
       properties:
-        token:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        username:
           type: string
-          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+          example: john@example.com
+        firstName:
+          type: string
+          example: John
+        lastName:
+          type: string
+          example: Doe
+        role:
+          type: string
+          enum:
+            - USER
+            - ADMIN
+          example: USER
 
     RegisterReq:
       type: object
