@@ -44,12 +44,56 @@ paths:
         '401':
           description: Неверные учетные данные
 
+  /login:
+    post:
+      tags:
+        - Аутентификация
+      summary: Авторизация пользователя (адрес фронтенда)
+      operationId: loginFrontend
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginReq'
+      responses:
+        '200':
+          description: Успешная авторизация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResp'
+        '400':
+          description: Неверный формат запроса
+        '401':
+          description: Неверные учетные данные
+
   /auth/register:
     post:
       tags:
         - Аутентификация
       summary: Регистрация нового пользователя
       operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterReq'
+      responses:
+        '201':
+          description: Пользователь успешно зарегистрирован
+        '400':
+          description: Неверные данные в запросе
+        '409':
+          description: Пользователь с таким email уже существует
+
+  /register:
+    post:
+      tags:
+        - Аутентификация
+      summary: Регистрация нового пользователя (адрес фронтенда)
+      operationId: registerFrontend
       requestBody:
         required: true
         content:
@@ -155,7 +199,7 @@ paths:
     get:
       tags:
         - Объявления
-      summary: Получение всех объявлений
+      summary: Получение всех объявлений (доступно без авторизации)
       operationId: getAllAds
       responses:
         '200':
@@ -164,7 +208,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdsDto'
-
 
     post:
       tags:
@@ -217,7 +260,7 @@ paths:
     get:
       tags:
         - Объявления
-      summary: Получение объявления по ID
+      summary: Получение объявления по ID (доступно без авторизации)
       operationId: getAd
       parameters:
         - name: id
@@ -233,8 +276,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FullAdDto'
-
-            '404':
+        '404':
           description: Объявление не найдено
 
     patch:

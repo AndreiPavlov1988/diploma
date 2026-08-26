@@ -14,9 +14,12 @@ import java.util.Map;
 /**
  * Глобальный обработчик исключений.
  *
- * 🆕 Исправлено замечание наставника: непредвиденные RuntimeException
- * теперь возвращают 500 (ошибка сервера), а не 400 (ошибка клиента).
- * Это позволяет отличать баги в коде от некорректных запросов клиента.
+ * Ловит все исключения из контроллеров и превращает их в правильные HTTP-ответы.
+ * Избавляет от необходимости писать try-catch в каждом контроллере.
+ *
+ * 🆕 Порядок методов НЕ важен — Spring выбирает обработчик по типу исключения,
+ * а не по порядку объявления. Но более специфичные исключения обрабатываются
+ * раньше более общих (RuntimeException — самый общий, он в конце).
  */
 @Slf4j
 @RestControllerAdvice
@@ -30,7 +33,7 @@ public class GlobalExceptionHandler {
                 .body(Map.of("message", ex.getMessage()));
     }
 
-    /** 403 — нет прав доступа */
+    /** 403 — нет прав доступа (автор или админ) */
     @ExceptionHandler(ForbiddenException.class)
     public ResponseEntity<Map<String, String>> handleForbidden(ForbiddenException ex) {
         log.warn("403 Forbidden: {}", ex.getMessage());
@@ -38,11 +41,22 @@ public class GlobalExceptionHandler {
                 .body(Map.of("message", ex.getMessage()));
     }
 
-    /** 409 — конфликт данных (email занят) */
+    /** 409 — конфликт данных (например, email уже занят) */
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<Map<String, String>> handleConflict(ConflictException ex) {
         log.warn("409 Conflict: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", ex.getMessage()));
+    }
+
+    /**
+     * 🆕 400 — неверный текущий пароль при смене пароля.
+     * Это ожидаемая ошибка клиента, а не внутренняя ошибка сервера.
+     */
+    @ExceptionHandler(InvalidPasswordException.class)
+    public ResponseEntity<Map<String, String>> handleInvalidPassword(InvalidPasswordException ex) {
+        log.warn("400 Bad Request (invalid password): {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(Map.of("message", ex.getMessage()));
     }
 
@@ -54,18 +68,18 @@ public class GlobalExceptionHandler {
                 .body(Map.of("message", "Неверные учетные данные"));
     }
 
-    /** 400 — ошибка валидации (@Valid) */
+    /** 400 — ошибка валидации (@Valid на DTO) */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, String>> handleValidation(MethodArgumentNotValidException ex) {
-        log.warn("400 Bad Request: ошибка валидации");
+        log.warn("400 Bad Request: ошибка валидации - {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(Map.of("message", "Неверные данные в запросе"));
     }
 
     /**
-     * 🆕 500 — ВНУТРЕННЯЯ ошибка сервера.
+     * 500 — ВНУТРЕННЯЯ ошибка сервера.
      * Сюда попадают непредвиденные исключения (NullPointerException и т.п.).
-     * Клиент получает нейтральное сообщение, а полный стек остаётся в логах.
+     * Клиент получает нейтральное сообщение, полный стек остаётся в логах.
      */
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, String>> handleRuntime(RuntimeException ex) {
