@@ -20,7 +20,11 @@ import java.util.Locale;
  * URL: /images/{type}/{id}/{filename}
  * Пример: /images/ads/1/abc-123.jpg
  *
- * Эндпоинт открытый (не требует авторизации) — настроено в SecurityConfig.
+ * Эндпоинт открытый (не требует авторизации) —
+ * настроено в SecurityConfig через permitAll() для GET /images/**
+ *
+ * Фронтенд получает URL картинки в поле "image" DTO (например, UserDto, AdDto)
+ * и конкатенирует его с http://localhost:8080 для полного URL.
  */
 @RestController
 @RequiredArgsConstructor
@@ -55,7 +59,7 @@ public class ImageController {
         // 2. Читаем байты с диска через ImageService
         byte[] image = imageService.getImage(path);
 
-        // 3. Отдаем байты с правильным Content-Type
+        // 3. Отдаём байты с правильным Content-Type
         return ResponseEntity.ok()
                 .contentType(detectMediaType(filename))
                 .body(image);
@@ -63,6 +67,7 @@ public class ImageController {
 
     /**
      * Определяет тип контента (Content-Type) по расширению файла.
+     * Это нужно, чтобы браузер правильноно отображал картинку.
      */
     private MediaType detectMediaType(String filename) {
         String lower = filename.toLowerCase(Locale.ROOT);
@@ -72,6 +77,7 @@ public class ImageController {
         if (lower.endsWith(".gif")) {
             return MediaType.IMAGE_GIF;
         }
-        return MediaType.IMAGE_JPEG;  // по умолчанию
+        // по умолчанию JPEG
+        return MediaType.IMAGE_JPEG;
     }
 }

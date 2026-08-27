@@ -15,10 +15,10 @@ import java.util.UUID;
 /**
  * Сервис для работы с изображениями.
  *
- * Хранит картинки НА ДИСКЕ в папке images/ (предпочтительный способ по ТЗ),
- * а в базу данных сохраняется только путь к файлу (поле image_path).
+ * Хранит картинки НА ДИСКЕ (предпочтительный способ по ТЗ)
+ * в папке images/{type}/{id}/, а в БД сохраняется только путь.
  *
- * Структура папок на диске:
+ * Структура хранения:
  * images/
  * ├── ads/        ← картинки объявлений
  * │   └── 1/      ← папка объявления с ID=1
@@ -26,15 +26,18 @@ import java.util.UUID;
  * └── users/      ← аватарки пользователей
  *     └── 2/
  *         └── def-456.png
+ *
+ * Путь настраивается через application.properties:
+ * app.images.storage-path=./images
  */
 @Slf4j
 @Service
 public class ImageService {
 
     /**
-     * Путь к папке хранения картинок.
-     * Берется из application.properties: app.images.storage-path=./images
-     * Если свойства нет — используется значение по умолчанию ./images
+     * Корневая папка для хранения картинок.
+     * Значение берётся из application.properties.
+     * Если свойство не указано — используется "./images" (значение по умолчанию после двоеточия).
      */
     @Value("${app.images.storage-path:./images}")
     private String storagePath;
@@ -45,7 +48,7 @@ public class ImageService {
      * @param image    файл, загруженный пользователем (MultipartFile)
      * @param type     тип сущности: "ads" или "users"
      * @param entityId ID сущности (ID объявления или пользователя)
-     * @return URL-путь для БД и фронтенда, например "/images/ads/1/abc.jpg"
+     * @return относительный URL для БД и фронтенда, например "/images/ads/1/abc.jpg"
      * @throws IOException если не удалось записать файл на диск
      */
     public String saveImage(MultipartFile image, String type, Long entityId) throws IOException {
@@ -54,7 +57,7 @@ public class ImageService {
             return null;
         }
 
-        // 1. Создаем папку images/{type}/{id}/, если её еще нет
+        // 1. Создаём папку images/{type}/{id}/, если её ещё нет
         //    Например: images/ads/1/
         Path uploadPath = Paths.get(storagePath, type, String.valueOf(entityId));
         if (!Files.exists(uploadPath)) {
@@ -84,12 +87,12 @@ public class ImageService {
     /**
      * Читает байты картинки с диска (для отдачи фронтенду).
      *
-     * @param path путь из БД, например "/images/ads/1/abc.jpg"
+     * @param path путь, например "images/ads/1/abc.jpg" (без начального слеша)
      * @return байты файла
      * @throws NotFoundException если файла нет на диске (→ HTTP 404)
      */
     public byte[] getImage(String path) {
-        // Убираем начальный слеш: "/images/..." → "images/..."
+        // Убираем начальный слеш, если он есть
         String relativePath = path.startsWith("/") ? path.substring(1) : path;
         Path filePath = Paths.get(relativePath);
 
