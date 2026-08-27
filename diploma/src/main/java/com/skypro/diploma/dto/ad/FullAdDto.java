@@ -43,4 +43,10 @@ public class FullAdDto {
     @Schema(description = "Дата создания",
             example = "2026-08-12 10:30:00")
     private String createdAt;
+    /**
+     * Алиас для id — поле, которое ожидает фронтенд курса.
+     */
+    public Long getPk() {
+        return id;
+    }
 }
