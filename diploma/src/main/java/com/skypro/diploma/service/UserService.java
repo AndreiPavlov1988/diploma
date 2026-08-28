@@ -8,6 +8,7 @@ import com.skypro.diploma.dto.user.UserDto;
 import com.skypro.diploma.entity.User;
 import com.skypro.diploma.enums.Role;
 import com.skypro.diploma.exception.ConflictException;
+import com.skypro.diploma.exception.InvalidImageException;
 import com.skypro.diploma.exception.InvalidPasswordException;
 import com.skypro.diploma.exception.NotFoundException;
 import com.skypro.diploma.mapper.UserMapper;
@@ -25,11 +26,8 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 
 /**
- * Сервис для работы с пользователями.
- *
- * Содержит ВСЮ бизнес-логику: проверка уникальности email,
- * шифрование пароля, сохранение в БД, обновление профиля,
- * сбор ответа для контроллера авторизации.
+ * Сервис для работы с пользователями: регистрация, профиль,
+ * смена пароля, аватар, сбор ответа авторизации.
  */
 @Slf4j
 @Service
@@ -43,8 +41,10 @@ public class UserService {
 
     /**
      * Возвращает ТЕКУЩЕГО авторизованного пользователя (Entity).
-     * Spring Security после успешного входа кладет логин (email)
-     * в SecurityContextHolder — оттуда мы его и достаем.
+     * Логин берётся из SecurityContextHolder после успешного входа.
+     *
+     * @return сущность текущего пользователя
+     * @throws NotFoundException если пользователь не найден в БД
      */
     public User getCurrentUser() {
         String username = SecurityContextHolder.getContext()
@@ -56,17 +56,16 @@ public class UserService {
 
     /**
      * Возвращает DTO текущего пользователя (для GET /users/me).
+     *
+     * @return DTO профиля
      */
     public UserDto getCurrentUserDto() {
         return userMapper.toDto(getCurrentUser());
     }
 
     /**
-     * 🆕 Аутентифицирует пользователя и возвращает DTO с информацией о нём.
-     * Используется контроллером /auth/login.
-     *
-     * Логика сбора ответа вынесена в сервис (замечание куратора),
-     * чтобы контроллер оставался "тонким" — только HTTP-взаимодействие.
+     * Собирает ответ для успешной авторизации (POST /auth/login).
+     * Логика вынесена из контроллера — контроллер остаётся «тонким».
      *
      * @param username email пользователя
      * @return данные вошедшего пользователя (id, имя, роль)
@@ -87,7 +86,9 @@ public class UserService {
 
     /**
      * Регистрирует нового пользователя (POST /auth/register).
+     * Пароль сохраняется только в виде BCrypt-хэша, роль по умолчанию — USER.
      *
+     * @param registerReq данные регистрации
      * @throws ConflictException если email уже занят (→ 409)
      */
     @Transactional
@@ -112,6 +113,9 @@ public class UserService {
 
     /**
      * Обновляет профиль текущего пользователя (PATCH /users/me).
+     *
+     * @param updateReq новые данные профиля
+     * @return обновлённое DTO профиля
      */
     @Transactional
     public UserDto updateCurrentUser(UpdateUserReq updateReq) {
@@ -129,8 +133,8 @@ public class UserService {
     /**
      * Меняет пароль текущего пользователя (POST /users/me/password).
      *
-     * 🆕 При неверном текущем пароле бросает InvalidPasswordException (→ 400),
-     * а не RuntimeException (→ 500). Это ожидаемая ошибка клиента.
+     * @param passwordReq текущий и новый пароли
+     * @throws InvalidPasswordException если текущий пароль неверен (→ 400)
      */
     @Transactional
     public void updatePassword(NewPasswordReq passwordReq) {
@@ -147,17 +151,32 @@ public class UserService {
 
     /**
      * Обновляет аватар текущего пользователя (PATCH /users/me/image).
+     *
+     * 🆕 После успешной замены СТАРАЯ картинка удаляется с диска,
+     * чтобы не накапливать неиспользуемые файлы (замечание наставника).
+     *
+     * @param image новый файл аватара
+     * @return URL-путь новой картинки
+     * @throws IOException           если не удалось записать файл
+     * @throws InvalidImageException если файл не является картинкой (→ 400)
      */
     @Transactional
     public String updateUserAvatar(MultipartFile image) throws IOException {
+        if (image == null || image.isEmpty()) {
+            throw new InvalidImageException("Файл изображения пуст");
+        }
+
         User user = getCurrentUser();
+        String oldPath = user.getImagePath();
 
         String imagePath = imageService.saveImage(image, "users", user.getId());
-
         user.setImagePath(imagePath);
         userRepository.save(user);
-        log.info("Обновлена аватарка пользователя: {}", user.getUsername());
 
+        // Удаляем старый файл ПОСЛЕ успешного сохранения нового
+        imageService.deleteImage(oldPath);
+
+        log.info("Обновлена аватарка пользователя: {}", user.getUsername());
         return imagePath;
     }
 }
